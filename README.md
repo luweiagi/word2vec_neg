@@ -20,7 +20,7 @@ xx xx xx ... xx NEG xx xx xx ... xx
 xx xx xx ... xx NEG xx xx xx ... xx
 ```
 
-sequence before NEG is positives, and sequence after NEG is negtives.
+Sequence before NEG is positives, and sequence after NEG is negtives.
 
 This can be used to Recommend Systems.
 
