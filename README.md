@@ -38,34 +38,6 @@ How to use: git clone from [word2vec](https://github.com/dav/word2vec), and move
 
 
 
-曝光占比查明
-
-icf判断，相似的人保证不了，还需要内容相似度
-
-ucf口味一致
-
-快速收工
-
-
-
-deep
-
-社交偏好，匹配，集中度下降
-
-从社交偏好和匹配做recall，才有理由， 才能改变文案
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
