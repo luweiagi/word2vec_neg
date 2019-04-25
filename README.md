@@ -20,45 +20,9 @@ xx xx xx ... xx NEG xx xx xx ... xx
 xx xx xx ... xx NEG xx xx xx ... xx
 ```
 
-seqense before NEG is positives, and sequence after NEG is negtives.
+sequence before NEG is positives, and sequence after NEG is negtives.
 
 This can be used to Recommend Systems.
 
-How to use: git clone from [word2vec](https://github.com/dav/word2vec), and move this file to the /src folder and replace the existing file, then `make` and `sh create-text8-vector-data.sh `. Attention：you should replace the training file `text8` in `\data` by your own data using the format of `xx xx xx ... xx NEG xx xx xx ... xx`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+How to use: git clone from [word2vec](https://github.com/dav/word2vec), and move word2vec_neg.c file to the /src folder ,then rename and replace the existing word2vec.c file, then `make` and `sh create-text8-vector-data.sh `. Attention：you should replace the training file `text8` in `\data` by your own data using the format of `xx xx xx ... xx NEG xx xx xx ... xx`
 
