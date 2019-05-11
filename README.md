@@ -9,7 +9,7 @@ The idea which inspires me in that paper is  as follows:
 >
 > page 313 in airbnb paper
 
-That is to say, when we choose negtive sampling in word2vec, the negtive samples shold not be far away from the positive samples, or the embedding vectors can not be differentiated, so we should choose negatives from same region, then word2vec will distinguish the differences between positives and negtives , and learn well. 
+That is to say, when we choose negtive sampling in word2vec, the negtive samples shold not be far away from the positive samples, or the embedding vectors can not be differentiated very well, so we should choose negatives from same region, then word2vec will distinguish the differences between positives and negtives much better. 
 
 The format of the trainning data is:
 

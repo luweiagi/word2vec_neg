@@ -26,6 +26,7 @@
 #include <math.h>
 // 加入bool类型 lw
 #include <stdbool.h>
+#include <unistd.h>
 
 #define MAX_STRING 100
 #define EXP_TABLE_SIZE 1000
@@ -40,9 +41,9 @@ const int vocab_hash_size = 30000000;  // Maximum 30 * 0.7 = 21M words in the vo
 typedef float real;                    // Precision of float numbers
 
 struct vocab_word {
-  long long cn;
-  int *point;
-  char *word, *code, codelen;
+    long long cn;
+    int *point;
+    char *word, *code, codelen;
 };
 
 char train_file[MAX_STRING], output_file[MAX_STRING];
@@ -153,7 +154,7 @@ int AddWordToVocab(char *word) {
 
 // Used later for sorting by word counts
 int VocabCompare(const void *a, const void *b) {
-    return ((struct vocab_word *)b)->cn - ((struct vocab_word *)a)->cn;
+  return ((struct vocab_word *)b)->cn - ((struct vocab_word *)a)->cn;
 }
 
 // Sorts the vocabulary by frequency using word counts
@@ -191,10 +192,10 @@ void ReduceVocab() {
   int a, b = 0;
   unsigned int hash;
   for (a = 0; a < vocab_size; a++) if (vocab[a].cn > min_reduce) {
-    vocab[b].cn = vocab[a].cn;
-    vocab[b].word = vocab[a].word;
-    b++;
-  } else free(vocab[a].word);
+      vocab[b].cn = vocab[a].cn;
+      vocab[b].word = vocab[a].word;
+      b++;
+    } else free(vocab[a].word);
   vocab_size = b;
   for (a = 0; a < vocab_hash_size; a++) vocab_hash[a] = -1;
   for (a = 0; a < vocab_size; a++) {
@@ -292,7 +293,7 @@ void LearnVocabFromTrainFile() {
     ReadWord(word, fin);
     if (feof(fin)) break;
 
-  // 忽略NEG这个单词，同时将neg_flag置为真，表示该行后面的单词都是负采样的了，不需要录入了 lw
+    // 忽略NEG这个单词，同时将neg_flag置为真，表示该行后面的单词都是负采样的了，不需要录入了 lw
     if (!strcmp(word, "NEG")) {
       neg_flag = true;
       continue;
@@ -388,10 +389,10 @@ void InitNet() {
     syn1 = _aligned_malloc((long long)vocab_size * layer1_size * sizeof(real), 128);
 #elif defined  linux
     a = posix_memalign((void **)&syn1, 128, (long long)vocab_size * layer1_size * sizeof(real));
-#endif    
+#endif
     if (syn1 == NULL) {printf("Memory allocation failed\n"); exit(1);}
     for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
-     syn1[a * layer1_size + b] = 0;
+        syn1[a * layer1_size + b] = 0;
   }
   if (negative>0) {
 #ifdef _MSC_VER
@@ -399,16 +400,24 @@ void InitNet() {
 #elif defined  linux
     a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
 #endif
-    
+
     if (syn1neg == NULL) {printf("Memory allocation failed\n"); exit(1);}
     for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
-     syn1neg[a * layer1_size + b] = 0;
+        syn1neg[a * layer1_size + b] = 0;
   }
   for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++) {
-    next_random = next_random * (unsigned long long)25214903917 + 11;
-    syn0[a * layer1_size + b] = (((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size;
-  }
+      next_random = next_random * (unsigned long long)25214903917 + 11;
+      syn0[a * layer1_size + b] = (((next_random & 0xFFFF) / (real)65536) - 0.5) / layer1_size;
+    }
   CreateBinaryTree();
+}
+
+void taketime() {
+  int a, b;
+  for(a=0;a<10000000;a++)
+  {
+    b += a;
+  }
 }
 
 void *TrainModelThread(void *id) {
@@ -435,8 +444,8 @@ void *TrainModelThread(void *id) {
       if ((debug_mode > 1)) {
         now=clock();
         printf("%cAlpha: %f  Progress: %.2f%%  Words/thread/sec: %.2fk  ", 13, alpha,
-         word_count_actual / (real)(iter * train_words + 1) * 100,
-         word_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
+               word_count_actual / (real)(iter * train_words + 1) * 100,
+               word_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
         fflush(stdout);
       }
       alpha = starting_alpha * (1 - word_count_actual / (real)(iter * train_words + 1));
@@ -444,60 +453,63 @@ void *TrainModelThread(void *id) {
     }
     if (sentence_length == 0) {
       // 句子开始读取时，所有标志位置为false lw
-    sentence_length_full_flag = sentence_neg_length_full_flag = neg_flag = false;
+      sentence_length_full_flag = sentence_neg_length_full_flag = neg_flag = false;
 
       while (1) {
         word = ReadWordIndex(fi);
         if (feof(fi)) break;
 
         // 如果单词是NEG，则将负采样的标志位置为true lw
-      if (word == -2) {
-        neg_flag = true;
+        if (word == -2) {
+          neg_flag = true;
+          //printf("--2");usleep(100000);
           continue;
-      }
-        if (word == -1) continue;
-        // 当没有达到负采样位置且句子长度不超过最大长度时，累计单词数目 lw
-        if (neg_flag == false && sentence_length_full_flag == false) {
-        word_count++;
         }
         if (word == 0) {
-        // 防止文件被进程切分后第一句是在NEG后面 lw
-        // 因为当一句话结束时，必然会遇到NEG标志位，则必然neg_flag为真，而如果neg_flag为假，说明这句话的NEG标志位没被切分进来 lw
-        if (neg_flag == false) {
-          word_count = 0;
-          sentence_length = 0;
-          sentence_neg_length = 0;
+          // 防止文件被进程切分后第一句是在NEG后面 lw
+          // 因为当一句话结束时，必然会遇到NEG标志位，则必然neg_flag为真，而如果neg_flag为假，说明这句话的NEG标志位没被切分进来 lw
+          if (neg_flag == false) {
+            word_count = 0;
+            sentence_length = 0;
+            sentence_neg_length = 0;
+          }
+          break;
         }
-        break;
+        if (word == -1) continue;
+
+        // 当没有达到负采样位置且句子长度不超过最大长度时，累计单词数目 lw
+        if (neg_flag == false && sentence_length_full_flag == false) {
+          word_count++;
         }
-    // 采集sen和sen_neg的句子，如果超出长度，则停止采集 lw
+
+        // 采集sen和sen_neg的句子，如果超出长度，则停止采集 lw
         if (neg_flag == false) {
           // The subsampling randomly discards frequent words while keeping the ranking same
           if (sample > 0) {
-          real ran = (sqrt(vocab[word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[word].cn;
-          next_random = next_random * (unsigned long long)25214903917 + 11;
-          if (ran < (next_random & 0xFFFF) / (real)65536) continue;
-        }
-        if (sentence_length_full_flag == false) {
-          sen[sentence_length] = word;
-          sentence_length++;
-          if (sentence_length >= MAX_SENTENCE_LENGTH) {
-        sentence_length_full_flag = true;
-        }
-        }
-        else if (word != -2) {
-        if (sentence_neg_length_full_flag == false) {
-          sen_neg[sentence_neg_length] = word;
-          sentence_neg_length++;
-          if (sentence_neg_length >= MAX_SENTENCE_NEG_LENGTH) {
-            sentence_neg_length_full_flag = true;
+            real ran = (sqrt(vocab[word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[word].cn;
+            next_random = next_random * (unsigned long long)25214903917 + 11;
+            if (ran < (next_random & 0xFFFF) / (real)65536) continue;
+          }
+          if (sentence_length_full_flag == false) {
+            sen[sentence_length] = word;
+            sentence_length++;
+            if (sentence_length >= MAX_SENTENCE_LENGTH) {
+              sentence_length_full_flag = true;
+            }
           }
         }
+        else if (word != -2) {
+          if (sentence_neg_length_full_flag == false) {
+            sen_neg[sentence_neg_length] = word;
+            sentence_neg_length++;
+            if (sentence_neg_length >= MAX_SENTENCE_NEG_LENGTH) {
+              sentence_neg_length_full_flag = true;
+            }
+          }
         }
       }
       sentence_position = 0;
     }
-
     if (feof(fi) || (word_count > train_words / num_threads)) {
       word_count_actual += word_count - last_word_count;
       local_iter--;
@@ -510,12 +522,12 @@ void *TrainModelThread(void *id) {
       fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
       continue;
     }
-
-    // 防止切分时导致的一些问题 lw
-    if (sentence_length == 0 || sentence_neg_length == 0) {
-    continue;
+    // 防止切分时导致的一些问题,则忽略该行 lw
+    if (sentence_length == 0) {
+      sentence_length = 0;
+      sentence_neg_length = 0;
+      continue;
     }
-
     word = sen[sentence_position];
     if (word == -1) continue;
     for (c = 0; c < layer1_size; c++) neu1[c] = 0;
@@ -526,113 +538,121 @@ void *TrainModelThread(void *id) {
       // in -> hidden
       cw = 0;
       for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
-        c = sentence_position - window + a;
-        if (c < 0) continue;
-        if (c >= sentence_length) continue;
-        last_word = sen[c];
-        if (last_word == -1) continue;
-        for (c = 0; c < layer1_size; c++) neu1[c] += syn0[c + last_word * layer1_size];
-        cw++;
-      }
-      if (cw) {
-        for (c = 0; c < layer1_size; c++) neu1[c] /= cw;
-        if (hs) for (d = 0; d < vocab[word].codelen; d++) {
-          f = 0;
-          l2 = vocab[word].point[d] * layer1_size;
-          // Propagate hidden -> output
-          for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1[c + l2];
-          if (f <= -MAX_EXP) continue;
-          else if (f >= MAX_EXP) continue;
-          else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
-          // 'g' is the gradient multiplied by the learning rate
-          g = (1 - vocab[word].code[d] - f) * alpha;
-          // Propagate errors output -> hidden
-          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
-          // Learn weights hidden -> output
-          for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * neu1[c];
-        }
-        // NEGATIVE SAMPLING
-        if (negative > 0) for (d = 0; d < negative + 1; d++) {
-          if (d == 0) {
-            target = word;
-            label = 1;
-          } else {
-            next_random = next_random * (unsigned long long)25214903917 + 11;
-            // 从sen_neg中选择出负样本 lw
-            target = sen_neg[(next_random >> 16) % sentence_neg_length];
-            // if (target == 0) target = next_random % (vocab_size - 1) + 1;
-            if (target == word) continue;
-            label = 0;
-          }
-          l2 = target * layer1_size;
-          f = 0;
-          for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1neg[c + l2];
-          if (f > MAX_EXP) g = (label - 1) * alpha;
-          else if (f < -MAX_EXP) g = (label - 0) * alpha;
-          else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
-          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * neu1[c];
-        }
-        // hidden -> in
-        for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
           c = sentence_position - window + a;
           if (c < 0) continue;
           if (c >= sentence_length) continue;
           last_word = sen[c];
           if (last_word == -1) continue;
-          for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += neu1e[c];
+          for (c = 0; c < layer1_size; c++) neu1[c] += syn0[c + last_word * layer1_size];
+          cw++;
         }
+      if (cw) {
+        for (c = 0; c < layer1_size; c++) neu1[c] /= cw;
+        if (hs) for (d = 0; d < vocab[word].codelen; d++) {
+            f = 0;
+            l2 = vocab[word].point[d] * layer1_size;
+            // Propagate hidden -> output
+            for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1[c + l2];
+            if (f <= -MAX_EXP) continue;
+            else if (f >= MAX_EXP) continue;
+            else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+            // 'g' is the gradient multiplied by the learning rate
+            g = (1 - vocab[word].code[d] - f) * alpha;
+            // Propagate errors output -> hidden
+            for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
+            // Learn weights hidden -> output
+            for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * neu1[c];
+          }
+        // NEGATIVE SAMPLING
+        if (negative > 0) for (d = 0; d < negative + 1; d++) {
+            if (d == 0) {
+              target = word;
+              label = 1;
+            } else {
+              next_random = next_random * (unsigned long long)25214903917 + 11;
+              // 从sen_neg中选择出负样本，不能单纯从这里选取，最多只选择一半 lw
+              if (sentence_neg_length > 0 && ((next_random >> 16) % (MAX_SENTENCE_NEG_LENGTH*2)) < sentence_neg_length) {
+                target = sen_neg[(next_random >> 16) % sentence_neg_length];
+              } else {
+                target = table[(next_random >> 16) % table_size];
+                if (target == 0) target = next_random % (vocab_size - 1) + 1;
+              }
+              if (target == word) continue;
+              label = 0;
+            }
+            l2 = target * layer1_size;
+            f = 0;
+            for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1neg[c + l2];
+            if (f > MAX_EXP) g = (label - 1) * alpha;
+            else if (f < -MAX_EXP) g = (label - 0) * alpha;
+            else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+            for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
+            for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * neu1[c];
+          }
+        // hidden -> in
+        for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
+            c = sentence_position - window + a;
+            if (c < 0) continue;
+            if (c >= sentence_length) continue;
+            last_word = sen[c];
+            if (last_word == -1) continue;
+            for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += neu1e[c];
+          }
       }
     } else {  //train skip-gram
       for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
-        c = sentence_position - window + a;
-        if (c < 0) continue;
-        if (c >= sentence_length) continue;
-        last_word = sen[c];
-        if (last_word == -1) continue;
-        l1 = last_word * layer1_size;
-        for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
-        // HIERARCHICAL SOFTMAX
-        if (hs) for (d = 0; d < vocab[word].codelen; d++) {
-          f = 0;
-          l2 = vocab[word].point[d] * layer1_size;
-          // Propagate hidden -> output
-          for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1[c + l2];
-          if (f <= -MAX_EXP) continue;
-          else if (f >= MAX_EXP) continue;
-          else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
-          // 'g' is the gradient multiplied by the learning rate
-          g = (1 - vocab[word].code[d] - f) * alpha;
-          // Propagate errors output -> hidden
-          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
-          // Learn weights hidden -> output
-          for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * syn0[c + l1];
+          c = sentence_position - window + a;
+          if (c < 0) continue;
+          if (c >= sentence_length) continue;
+          last_word = sen[c];
+          if (last_word == -1) continue;
+          l1 = last_word * layer1_size;
+          for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
+          // HIERARCHICAL SOFTMAX
+          if (hs) for (d = 0; d < vocab[word].codelen; d++) {
+              f = 0;
+              l2 = vocab[word].point[d] * layer1_size;
+              // Propagate hidden -> output
+              for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1[c + l2];
+              if (f <= -MAX_EXP) continue;
+              else if (f >= MAX_EXP) continue;
+              else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+              // 'g' is the gradient multiplied by the learning rate
+              g = (1 - vocab[word].code[d] - f) * alpha;
+              // Propagate errors output -> hidden
+              for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
+              // Learn weights hidden -> output
+              for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * syn0[c + l1];
+            }
+          // NEGATIVE SAMPLING
+          if (negative > 0) for (d = 0; d < negative + 1; d++) {
+              if (d == 0) {
+                target = word;
+                label = 1;
+              } else {
+                next_random = next_random * (unsigned long long)25214903917 + 11;
+                // 从sen_neg中选择出负样本，不能单纯从这里选取，最多只选择一半 lw
+                if (sentence_neg_length > 0 && ((next_random >> 16) % (MAX_SENTENCE_NEG_LENGTH*2)) < sentence_neg_length) {
+                  target = sen_neg[(next_random >> 16) % sentence_neg_length];
+                } else {
+                  target = table[(next_random >> 16) % table_size];
+                  if (target == 0) target = next_random % (vocab_size - 1) + 1;
+                }
+                if (target == word) continue;
+                label = 0;
+              }
+              l2 = target * layer1_size;
+              f = 0;
+              for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
+              if (f > MAX_EXP) g = (label - 1) * alpha;
+              else if (f < -MAX_EXP) g = (label - 0) * alpha;
+              else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+              for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
+              for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * syn0[c + l1];
+            }
+          // Learn weights input -> hidden
+          for (c = 0; c < layer1_size; c++) syn0[c + l1] += neu1e[c];
         }
-        // NEGATIVE SAMPLING
-        if (negative > 0) for (d = 0; d < negative + 1; d++) {
-          if (d == 0) {
-            target = word;
-            label = 1;
-          } else {
-            next_random = next_random * (unsigned long long)25214903917 + 11;
-            // 从sen_neg中选择出负样本 lw
-            target = sen_neg[(next_random >> 16) % sentence_neg_length];
-            // if (target == 0) target = next_random % (vocab_size - 1) + 1;
-            if (target == word) continue;
-            label = 0;
-          }
-          l2 = target * layer1_size;
-          f = 0;
-          for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
-          if (f > MAX_EXP) g = (label - 1) * alpha;
-          else if (f < -MAX_EXP) g = (label - 0) * alpha;
-          else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
-          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * syn0[c + l1];
-        }
-        // Learn weights input -> hidden
-        for (c = 0; c < layer1_size; c++) syn0[c + l1] += neu1e[c];
-      }
     }
     sentence_position++;
     if (sentence_position >= sentence_length) {
@@ -646,16 +666,16 @@ void *TrainModelThread(void *id) {
   free(neu1);
   free(neu1e);
 #ifdef _MSC_VER
-_endthreadex(0);
-#elif defined  linux 
+  _endthreadex(0);
+#elif defined  linux
   pthread_exit(NULL);
 #endif
 }
 
 #ifdef _MSC_VER
 DWORD WINAPI TrainModelThread_win(LPVOID tid){
-  TrainModelThread(tid);
-  return 0;
+	TrainModelThread(tid);
+	return 0;
 }
 #endif
 
@@ -664,32 +684,46 @@ void TrainModel() {
   FILE *fo;
   printf("Starting training using file %s\n", train_file);
   starting_alpha = alpha;
-  if (read_vocab_file[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
+
+  if (read_vocab_file[0] != 0) {
+    printf("begin read vocab\n");
+    ReadVocab();
+    printf("finish read vocab\n");
+  } else {
+    printf("begin learn vocab from train file\n");
+    LearnVocabFromTrainFile();
+    printf("finish learn vocab from train file\n");
+  }
 
   if (save_vocab_file[0] != 0) SaveVocab();
   if (output_file[0] == 0) return;
 
+  printf("begin init net\n");
   InitNet();
-  // 该版本的负采样不需要生成采样表，直接采样跟在句子后面的负采样表就可以了 lw
-  //if (negative > 0) InitUnigramTable();
+  printf("finish init net\n");
+
+  if (negative > 0) InitUnigramTable();
   start = clock();
-  
+
+  printf("begin training\n");
 #ifdef _MSC_VER
   HANDLE *pt = (HANDLE *)malloc(num_threads * sizeof(HANDLE));
-  for (int i = 0; i < num_threads; i++){
-    pt[i] = (HANDLE)_beginthreadex(NULL, 0, TrainModelThread_win, (void *)i, 0, NULL);
-  }
-  WaitForMultipleObjects(num_threads, pt, TRUE, INFINITE);
-  for (int i = 0; i < num_threads; i++){
-    CloseHandle(pt[i]);
-  }
-  free(pt);
-#elif defined  linux 
+	for (int i = 0; i < num_threads; i++){
+		pt[i] = (HANDLE)_beginthreadex(NULL, 0, TrainModelThread_win, (void *)i, 0, NULL);
+	}
+	WaitForMultipleObjects(num_threads, pt, TRUE, INFINITE);
+	for (int i = 0; i < num_threads; i++){
+		CloseHandle(pt[i]);
+	}
+	free(pt);
+#elif defined  linux
   pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
   for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
   for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
 #endif
+  printf("finish training\n");
 
+  printf("begin output embedding vector to file\n");
   fo = fopen(output_file, "wb");
   if (classes == 0) {
     // Save the word vectors
@@ -702,12 +736,12 @@ void TrainModel() {
       // 词向量归一化 lw
       vector_length = 0;
       for (b = 0; b < layer1_size; b++) {
-      vector_length += pow(syn0[a * layer1_size + b], 2);
+        vector_length += pow(syn0[a * layer1_size + b], 2);
       }
       if (vector_length > 0) {
-      vector_length = sqrt(vector_length);
-      for (b = 0; b < layer1_size; b++)
-      syn0[a * layer1_size + b] /= vector_length;
+        vector_length = sqrt(vector_length);
+        for (b = 0; b < layer1_size; b++)
+          syn0[a * layer1_size + b] /= vector_length;
       }
 
       if (binary) for (b = 0; b < layer1_size; b++) fwrite(&syn0[a * layer1_size + b], sizeof(real), 1, fo);
@@ -758,18 +792,19 @@ void TrainModel() {
     free(cent);
     free(cl);
   }
+  printf("finish output embedding vector to file\n");
   fclose(fo);
 }
 
 int ArgPos(char *str, int argc, char **argv) {
   int a;
   for (a = 1; a < argc; a++) if (!strcmp(str, argv[a])) {
-    if (a == argc - 1) {
-      printf("Argument missing for %s\n", str);
-      exit(1);
+      if (a == argc - 1) {
+        printf("Argument missing for %s\n", str);
+        exit(1);
+      }
+      return a;
     }
-    return a;
-  }
   return -1;
 }
 
